@@ -1,12 +1,15 @@
 use std::{
-    io,
+    io::{self, BufReader},
     net::TcpStream,
     thread,
     time::{Duration, Instant},
 };
 
 use anyhow::Result;
-use test_rs::networking::{packets::KeepAlivePacket, Packet, Writeable};
+use test_rs::networking::{
+    packets::{KeepAlivePacket, Packet},
+    Readable, Writeable,
+};
 
 fn main() -> Result<()> {
     start_client()?;
@@ -26,7 +29,9 @@ fn start_client() -> Result<()> {
         socket.set_nonblocking(true)?;
         match socket.peek(&mut bytes) {
             Ok(b) if b > 0 => {
-                let packet = Packet::from(&mut socket)?;
+                let mut reader = BufReader::new(&mut socket);
+
+                let packet = Packet::read(&mut reader)?;
                 println!("[Client] Received packet: {:?}", packet);
             }
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
@@ -37,7 +42,7 @@ fn start_client() -> Result<()> {
         }
 
         if latest_keep_alive.elapsed() > Duration::from_secs(10) {
-            let packet = Packet::KeepAlive(KeepAlivePacket);
+            let packet = Packet::KeepAlive(KeepAlivePacket {});
             packet.write(&mut socket)?;
             latest_keep_alive = Instant::now();
         }

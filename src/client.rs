@@ -1,5 +1,8 @@
+use crate::networking::packets::LocationPacket;
+use crate::networking::{Readable, Writeable};
 use anyhow::Result;
 use std::{
+    io::BufReader,
     net::{Shutdown, TcpStream},
     sync::{
         mpsc::{self, Sender},
@@ -9,10 +12,7 @@ use std::{
 };
 use uuid::Uuid;
 
-use crate::{
-    networking::{packets::LocationPacket, Packet, Writeable},
-    server::Server,
-};
+use crate::{networking::packets::Packet, server::Server};
 
 pub struct Client {
     pub id: Uuid,
@@ -49,7 +49,8 @@ impl Client {
             let mut stream = stream.try_clone()?;
             thread::spawn(move || {
                 loop {
-                    match Packet::from(&mut stream) {
+                    let mut reader = BufReader::new(&mut stream);
+                    match Packet::read(&mut reader) {
                         Ok(packet) => {
                             // Handle Packet
                             println!("[Client {id}] Packet received from {id}: {:?}", packet);
