@@ -6,7 +6,10 @@ use uuid::Uuid;
 
 use crate::{
     client::Player,
-    listener::{EventHandler, MoveEvent},
+    listener::{
+        Event::{self, *},
+        EventHandler,
+    },
 };
 
 type Handler = Box<dyn EventHandler + Sync + Send>;
@@ -43,13 +46,16 @@ impl Server {
         self.clients.len()
     }
 
-    pub fn dispatch_event(&self, event: &mut MoveEvent) {
-        for listener in self.listeners.iter() {
-            listener.on_move(event);
-        }
+    pub fn dispatch_event(&self, event: &mut Event) {
+        self.listeners.iter().for_each(|listener| match event {
+            Move(event) => listener.on_move(event),
+            Teleport(event) => listener.on_teleport(event),
+        });
     }
 
     pub fn tick(&mut self) {
+        // physics
+
         // if !self.clients.is_empty() && rand::random::<f64>() > 0.995 {
         //     println!("Teleport");
         //     for client in &mut self.clients.values() {

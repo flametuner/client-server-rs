@@ -1,9 +1,6 @@
 use crate::{
-    listener::MoveEvent,
-    networking::{
-        packets::{Move, Teleport},
-        Readable, Writeable,
-    },
+    listener::{Cancellable, Event, MoveEvent},
+    networking::{packets::*, Readable, Writeable},
 };
 use anyhow::Result;
 use std::{
@@ -81,26 +78,14 @@ impl Player {
             let client = client.clone();
             let mut stream = stream.try_clone()?;
             stream.set_nonblocking(false)?;
-            thread::spawn(move || {
-                loop {
-                    let mut reader = BufReader::new(&mut stream);
-                    match Packet::read(&mut reader) {
-                        Ok(packet) => {
-                            // Handle Packet
-                            // println!("[Client {id}] Packet received from {id}: {:?}", packet);
-                            // TODO send to listeners
-                            match packet {
-                                Packet::Move(Move { x, y }) => {
-                                    client.lock().unwrap().walk(x, y);
-                                }
-                                _ => {}
-                            }
-                        }
-                        Err(e) => {
-                            println!("Error reading packet: {:?}", e);
-                            client.lock().unwrap().disconnect();
-                            break;
-                        }
+            thread::spawn(move || loop {
+                let mut reader = BufReader::new(&mut stream);
+                match Packet::read(&mut reader) {
+                    Ok(packet) => client.lock().unwrap().process_packet(packet),
+                    Err(e) => {
+                        println!("Error reading packet: {:?}", e);
+                        client.lock().unwrap().disconnect();
+                        break;
                     }
                 }
             });
@@ -125,6 +110,15 @@ impl Player {
         Ok(client)
     }
 
+    fn process_packet(&mut self, packet: Packet) {
+        match packet {
+            Packet::Move(Move { x, y }) => {
+                self.walk(x, y);
+            }
+            _ => {}
+        }
+    }
+
     pub fn get_location(&self) -> Location {
         self.location
     }
@@ -137,22 +131,23 @@ impl Player {
     pub fn walk(&mut self, x: f32, y: f32) {
         let to_location = self.location + Location { x, y };
 
-        let mut event = MoveEvent::new(&self, to_location);
-
+        let event = MoveEvent::new(&self, to_location);
+        let mut event_wrapped = Event::Move(event);
         {
-            self.server.lock().unwrap().dispatch_event(&mut event);
+            // let mut event = &mut event;
+            self.server
+                .lock()
+                .unwrap()
+                .dispatch_event(&mut event_wrapped);
         }
 
-        if event.is_cancelled() {
-            return;
+        if let Event::Move(event) = event_wrapped {
+            if event.is_cancelled() {
+                return;
+            }
+
+            self.location = event.get_to();
         }
-
-        self.location = event.get_to();
-
-        println!(
-            "Client location: x:{}, y:{}",
-            self.location.x, self.location.y
-        );
     }
 
     pub fn disconnect(&mut self) {
