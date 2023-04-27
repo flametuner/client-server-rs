@@ -4,14 +4,17 @@ use std::{
 };
 use uuid::Uuid;
 
-use crate::client::{Client, Location};
+use crate::{
+    client::Player,
+    listener::{Event, EventHandler},
+};
 
 pub trait Listener {}
 
 #[derive(Default)]
 pub struct Server {
-    clients: HashMap<Uuid, Arc<Mutex<Client>>>,
-    listeners: Vec<Box<dyn Listener + Sync + Send>>,
+    clients: HashMap<Uuid, Arc<Mutex<Player>>>,
+    listeners: Vec<Box<dyn EventHandler<dyn Event> + Sync + Send>>,
 }
 
 impl Server {
@@ -23,12 +26,12 @@ impl Server {
 
     pub fn start() {}
 
-    pub fn add_client(&mut self, client: Arc<Mutex<Client>>) {
+    pub fn add_client(&mut self, client: Arc<Mutex<Player>>) {
         let id = client.lock().unwrap().id;
         self.clients.insert(id, client);
     }
 
-    pub fn add_listener(&mut self, listener: Box<dyn Listener + Sync + Send>) {
+    pub fn add_listener(&mut self, listener: Box<dyn EventHandler<dyn Event> + Sync + Send>) {
         self.listeners.push(listener);
     }
 
@@ -40,15 +43,21 @@ impl Server {
         self.clients.len()
     }
 
-    pub fn tick(&mut self) {
-        if rand::random::<f64>() > 0.995 {
-            println!("Teleport");
-            for client in &mut self.clients.values() {
-                client.lock().unwrap().teleport(Location {
-                    x: rand::random::<f32>(),
-                    y: rand::random::<f32>(),
-                });
-            }
+    pub fn handle_event(&self, event: &impl Event) {
+        for listener in &self.listeners {
+            listener.handle(event);
         }
+    }
+
+    pub fn tick(&mut self) {
+        // if !self.clients.is_empty() && rand::random::<f64>() > 0.995 {
+        //     println!("Teleport");
+        //     for client in &mut self.clients.values() {
+        //         client.lock().unwrap().teleport(Location {
+        //             x: rand::random::<f32>(),
+        //             y: rand::random::<f32>(),
+        //         });
+        //     }
+        // }
     }
 }

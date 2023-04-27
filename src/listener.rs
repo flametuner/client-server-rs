@@ -1,5 +1,24 @@
-use crate::server::Listener;
+use crate::client::{Location, Player};
 
-pub struct PacketHandler;
+pub trait Event {}
 
-impl Listener for PacketHandler {}
+pub struct MoveEvent {
+    cancelled: bool,
+    player: Box<Player>,
+    from: Location,
+    to: Location,
+}
+
+impl Event for MoveEvent {}
+
+pub trait Listener {}
+
+pub trait EventHandler<E: Event> {
+    fn handle(&self, event: &mut E);
+}
+
+pub struct OnMove;
+
+impl EventHandler<MoveEvent> for OnMove {
+    fn handle(&self, event: &mut MoveEvent) {}
+}

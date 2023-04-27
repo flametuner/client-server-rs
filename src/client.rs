@@ -1,5 +1,7 @@
-use crate::networking::packets::LocationPacket;
-use crate::networking::{Readable, Writeable};
+use crate::networking::{
+    packets::{Move, Teleport},
+    Readable, Writeable,
+};
 use anyhow::Result;
 use std::{
     io::BufReader,
@@ -14,7 +16,7 @@ use uuid::Uuid;
 
 use crate::{networking::packets::Packet, server::Server};
 
-pub struct Client {
+pub struct Player {
     pub id: Uuid,
     packet_sender: Sender<Packet>,
     location: Location,
@@ -28,7 +30,7 @@ pub struct Location {
     pub y: f32,
 }
 
-impl Client {
+impl Player {
     pub fn new(stream: TcpStream, server: Arc<Mutex<Server>>) -> Result<Arc<Mutex<Self>>> {
         let id = Uuid::new_v4();
         println!("[Client {id}] Connection established!");
@@ -47,16 +49,24 @@ impl Client {
         {
             let client = client.clone();
             let mut stream = stream.try_clone()?;
+            stream.set_nonblocking(false)?;
             thread::spawn(move || {
                 loop {
                     let mut reader = BufReader::new(&mut stream);
                     match Packet::read(&mut reader) {
                         Ok(packet) => {
                             // Handle Packet
-                            println!("[Client {id}] Packet received from {id}: {:?}", packet);
+                            // println!("[Client {id}] Packet received from {id}: {:?}", packet);
                             // TODO send to listeners
+                            match packet {
+                                Packet::Move(Move { x, y }) => {
+                                    client.lock().unwrap().walk(x, y);
+                                }
+                                _ => {}
+                            }
                         }
-                        Err(_) => {
+                        Err(e) => {
+                            println!("Error reading packet: {:?}", e);
                             client.lock().unwrap().disconnect();
                             break;
                         }
@@ -73,7 +83,8 @@ impl Client {
                 // write to stream
                 match packet.write(&mut stream) {
                     Ok(_) => {}
-                    Err(_) => {
+                    Err(e) => {
+                        println!("Error sending packet: {:?}", e);
                         client.lock().unwrap().disconnect();
                         break;
                     }
@@ -89,7 +100,16 @@ impl Client {
 
     pub fn teleport(&mut self, location: Location) {
         self.location = location;
-        self.send_packet(Packet::Teleport(LocationPacket::from(location)));
+        self.send_packet(Packet::Teleport(Teleport::from(location)));
+    }
+
+    pub fn walk(&mut self, x: f32, y: f32) {
+        self.location.x += x;
+        self.location.y += y;
+        println!(
+            "Client location: x:{}, y:{}",
+            self.location.x, self.location.y
+        );
     }
 
     pub fn disconnect(&mut self) {

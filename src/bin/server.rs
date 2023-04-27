@@ -1,11 +1,11 @@
 use anyhow::Result;
+use client_server_rs::{client::Player, server::Server};
 use std::{
     net::TcpListener,
     sync::{Arc, Mutex},
     thread,
     time::Duration,
 };
-use test_rs::{client::Client, server::Server};
 
 fn main() -> Result<()> {
     start_server()?;
@@ -18,6 +18,7 @@ fn start_server() -> Result<()> {
     let listener = TcpListener::bind("127.0.0.1:7878")?;
     let server = Arc::new(Mutex::new(Server::default()));
 
+    // we want to look for incoming request on each tick
     listener.set_nonblocking(true)?;
     let tick = Duration::from_secs_f64(1f64 / 20f64); // 20 ticks per seconds
     let mut latest_tick = std::time::Instant::now();
@@ -28,7 +29,7 @@ fn start_server() -> Result<()> {
                     server
                         .lock()
                         .unwrap()
-                        .add_client(Client::new(stream, server.clone())?);
+                        .add_client(Player::new(stream, server.clone())?);
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
                 Err(_) => println!("Error"),

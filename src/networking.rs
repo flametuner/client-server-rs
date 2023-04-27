@@ -111,13 +111,13 @@ macro_rules! packets {
 macro_rules! packet_enum {
     (
         $ident:ident {
-            $($id:literal = $packet:ident($packet_struct:ident)),* $(,)?
+            $($id:literal = $packet:ident),* $(,)?
         }
     ) => {
         #[derive(Debug, Clone)]
         pub enum $ident {
             $(
-                $packet($packet_struct),
+                $packet($packet),
             )*
         }
 
@@ -140,7 +140,7 @@ macro_rules! packet_enum {
                 let packet_id = PacketId::read(reader)?.0;
                 match packet_id {
                     $(
-                        id if id == $id => Ok($ident::$packet($packet_struct::read(reader)?)),
+                        id if id == $id => Ok($ident::$packet($packet::read(reader)?)),
                     )*
                     _ => Err(anyhow::anyhow!("unknown packet ID {}", packet_id)),
                 }
