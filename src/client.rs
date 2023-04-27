@@ -1,11 +1,15 @@
-use crate::networking::{
-    packets::{Move, Teleport},
-    Readable, Writeable,
+use crate::{
+    listener::MoveEvent,
+    networking::{
+        packets::{Move, Teleport},
+        Readable, Writeable,
+    },
 };
 use anyhow::Result;
 use std::{
     io::BufReader,
     net::{Shutdown, TcpStream},
+    ops::{Add, Sub},
     sync::{
         mpsc::{self, Sender},
         Arc, Mutex,
@@ -28,6 +32,33 @@ pub struct Player {
 pub struct Location {
     pub x: f32,
     pub y: f32,
+}
+
+impl Location {
+    pub fn distance(&self, other: &Self) -> f32 {
+        ((self.x - other.x).powi(2) + (self.y - other.y).powi(2)).sqrt()
+    }
+}
+impl Add for Location {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl Sub for Location {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
 }
 
 impl Player {
@@ -104,8 +135,20 @@ impl Player {
     }
 
     pub fn walk(&mut self, x: f32, y: f32) {
-        self.location.x += x;
-        self.location.y += y;
+        let to_location = self.location + Location { x, y };
+
+        let mut event = MoveEvent::new(&self, to_location);
+
+        {
+            self.server.lock().unwrap().dispatch_event(&mut event);
+        }
+
+        if event.is_cancelled() {
+            return;
+        }
+
+        self.location = event.get_to();
+
         println!(
             "Client location: x:{}, y:{}",
             self.location.x, self.location.y

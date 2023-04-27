@@ -6,15 +6,15 @@ use uuid::Uuid;
 
 use crate::{
     client::Player,
-    listener::{Event, EventHandler},
+    listener::{EventHandler, MoveEvent},
 };
 
-pub trait Listener {}
+type Handler = Box<dyn EventHandler + Sync + Send>;
 
 #[derive(Default)]
 pub struct Server {
     clients: HashMap<Uuid, Arc<Mutex<Player>>>,
-    listeners: Vec<Box<dyn EventHandler<dyn Event> + Sync + Send>>,
+    listeners: Vec<Handler>, // listeners: Vec<Box<dyn EventHandler<dyn Event>>>,
 }
 
 impl Server {
@@ -31,7 +31,7 @@ impl Server {
         self.clients.insert(id, client);
     }
 
-    pub fn add_listener(&mut self, listener: Box<dyn EventHandler<dyn Event> + Sync + Send>) {
+    pub fn add_listener(&mut self, listener: Handler) {
         self.listeners.push(listener);
     }
 
@@ -43,9 +43,9 @@ impl Server {
         self.clients.len()
     }
 
-    pub fn handle_event(&self, event: &impl Event) {
-        for listener in &self.listeners {
-            listener.handle(event);
+    pub fn dispatch_event(&self, event: &mut MoveEvent) {
+        for listener in self.listeners.iter() {
+            listener.on_move(event);
         }
     }
 

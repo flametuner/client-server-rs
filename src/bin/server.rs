@@ -1,5 +1,5 @@
 use anyhow::Result;
-use client_server_rs::{client::Player, server::Server};
+use client_server_rs::{client::Player, listener::MyListener, server::Server};
 use std::{
     net::TcpListener,
     sync::{Arc, Mutex},
@@ -17,6 +17,9 @@ fn start_server() -> Result<()> {
     println!("Starting server...");
     let listener = TcpListener::bind("127.0.0.1:7878")?;
     let server = Arc::new(Mutex::new(Server::default()));
+    {
+        server.lock().unwrap().add_listener(Box::new(MyListener));
+    }
 
     // we want to look for incoming request on each tick
     listener.set_nonblocking(true)?;
