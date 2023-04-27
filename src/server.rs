@@ -46,8 +46,8 @@ impl Server {
         self.clients.len()
     }
 
-    pub fn dispatch_event(&self, event: &mut Event) {
-        self.listeners.iter().for_each(|listener| match event {
+    pub fn dispatch_event(&self, mut event: Event) {
+        self.listeners.iter().for_each(|listener| match &mut event {
             Move(event) => listener.on_move(event),
             Teleport(event) => listener.on_teleport(event),
         });

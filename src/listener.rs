@@ -1,11 +1,9 @@
 use crate::client::{Location, Player};
 
-pub enum Event<'a> {
-    Move(MoveEvent<'a>),
-    Teleport(TeleportEvent<'a>),
+pub enum Event<'a, 'b> {
+    Move(&'a mut MoveEvent<'b>),
+    Teleport(&'a mut TeleportEvent<'b>),
 }
-
-impl<'a> Event<'a> {}
 
 pub trait Cancellable {
     fn set_cancelled(&mut self, cancelled: bool);
@@ -29,6 +27,14 @@ impl Cancellable for TeleportEvent<'_> {
 }
 
 impl<'a> TeleportEvent<'a> {
+    pub fn new(player: &'a Player, to: Location) -> Self {
+        Self {
+            cancelled: false,
+            player,
+            to,
+        }
+    }
+
     pub fn set_to(&mut self, to: Location) {
         self.to = to;
     }

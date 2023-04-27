@@ -131,23 +131,19 @@ impl Player {
     pub fn walk(&mut self, x: f32, y: f32) {
         let to_location = self.location + Location { x, y };
 
-        let event = MoveEvent::new(&self, to_location);
-        let mut event_wrapped = Event::Move(event);
+        let mut event = MoveEvent::new(&self, to_location);
         {
-            // let mut event = &mut event;
             self.server
                 .lock()
                 .unwrap()
-                .dispatch_event(&mut event_wrapped);
+                .dispatch_event(Event::Move(&mut event));
         }
 
-        if let Event::Move(event) = event_wrapped {
-            if event.is_cancelled() {
-                return;
-            }
-
-            self.location = event.get_to();
+        if event.is_cancelled() {
+            return;
         }
+
+        self.location = event.get_to();
     }
 
     pub fn disconnect(&mut self) {
