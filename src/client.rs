@@ -1,5 +1,5 @@
 use crate::{
-    listener::{Cancellable, Event, MoveEvent},
+    listener::{movement::MoveEvent, Cancellable, Event},
     networking::{packets::*, Readable, Writeable},
 };
 use anyhow::Result;
@@ -143,7 +143,11 @@ impl Player {
             return;
         }
 
-        self.location = event.get_to();
+        self.location = event.to().clone();
+        println!(
+            "[Client {}] Moved to ({}, {})",
+            self.id, self.location.x, self.location.y
+        );
     }
 
     pub fn disconnect(&mut self) {
